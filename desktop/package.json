@@ -1,0 +1,49 @@
+{
+  "name": "vybe-desktop",
+  "productName": "Vybe",
+  "version": "0.1.0",
+  "description": "Vybe desktop — clip, edit and post from your own computer with your own API keys.",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "build:server": "node build.mjs",
+    "start": "electron .",
+    "dist": "node build.mjs && electron-builder --win",
+    "dist:dir": "node build.mjs && electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.vybe.desktop",
+    "productName": "Vybe",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "toolbar-preload.cjs",
+      "toolbar.html",
+      "tabs.cjs",
+      "loading.html",
+      "assets/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Vybe"
+    },
+    "afterPack": "./after-pack.cjs"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  }
+}

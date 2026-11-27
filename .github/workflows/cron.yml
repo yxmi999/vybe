@@ -1,0 +1,40 @@
+# Drives the prod background jobs. Vercel Hobby only allows daily crons, so
+# GitHub Actions calls the cron endpoints instead. Needs repo secrets:
+#   APP_URL      e.g. https://your-app.vercel.app  (no trailing slash)
+#   CRON_SECRET  same value as CRON_SECRET in the Vercel project env
+# Note: scheduled workflows only run from the default branch (main), and
+# GitHub may delay runs by a few minutes under load.
+name: cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # publish due scheduled posts
+    - cron: "*/15 * * * *"  # run due Auto-Pilot schedules
+  workflow_dispatch:
+
+concurrency:
+  group: cron-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  scheduler:
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Publish due posts
+        run: |
+          curl -sS --fail-with-body --max-time 320 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/scheduler"
+
+  auto-pilot:
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Run due Auto-Pilots
+        run: |
+          curl -sS --fail-with-body --max-time 320 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/auto-pilot/run"

@@ -1,0 +1,16 @@
+# Never upload these to Vercel when deploying from this folder.
+# Secrets and local data:
+.env*
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+public/uploads/
+.claude/
+# Build output / dependencies (Vercel installs and builds itself):
+node_modules/
+.next/
+# Not part of the website:
+desktop/
+docs/
+tsconfig.tsbuildinfo

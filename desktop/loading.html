@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'">
+<title>Vybe</title>
+<!--
+  Vybe desktop loading screen — shown while the local server boots.
+  Wordmark, a pulsing brand dot, a thin sliding loading line and a status
+  line. The shell drives the status with real boot steps
+  (window.vybeLoading.status) and calls window.vybeLoading.finish() to fade
+  out into the app.
+-->
+<style>
+  @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/SpaceGrotesk-Medium.ttf") format("truetype"); }
+
+  :root { --bg: #0a0a0a; --cobalt: #4a76d4; --cyan: #22d3ee; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none; cursor: default;
+  }
+
+  .stage {
+    display: flex; flex-direction: column; align-items: center; gap: 28px;
+    opacity: 0; animation: in 600ms ease 100ms forwards;
+    transition: opacity 350ms ease, transform 350ms ease;
+  }
+  body.done .stage { opacity: 0 !important; transform: scale(0.98); }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .wordmark { width: 150px; height: auto; overflow: visible; }
+  .wordmark .dot { transform-box: fill-box; transform-origin: center; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
+    50% { transform: scale(1.18); filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.7)); }
+  }
+
+  /* Thin indeterminate loading line in the brand gradient. */
+  .line { position: relative; width: 140px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .line::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--cobalt), var(--cyan), transparent);
+    animation: slide 1.3s cubic-bezier(.6, 0, .4, 1) infinite;
+  }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+  .status { height: 16px; font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.38); transition: opacity 180ms ease; }
+  .status.swap { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage { animation: none; opacity: 1; }
+    .wordmark .dot, .line::after { animation: none; }
+    .line::after { width: 100%; opacity: 0.6; }
+  }
+</style>
+</head>
+<body>
+  <main class="stage" aria-busy="true">
+    <svg class="wordmark" viewBox="-1 -71 261.2 92" role="img" aria-label="Vybe">
+      <defs><linearGradient id="d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a76d4"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <path d="M42.20 0L19.60 0L1.80-70L15.40-70L30.20-8.50L31.60-8.50L46.40-70L60-70L42.20 0Z M101.70 20L70.50 20L70.50 9L97.50 9Q100.30 9 100.30 6L100.30 6L100.30-6.50L98.50-6.50Q97.30-4 94-1.60Q90.70 0.80 84 0.80L84 0.80Q78.20 0.80 73.85-1.85Q69.50-4.50 67.10-9.20Q64.70-13.90 64.70-20L64.70-20L64.70-49.60L77.30-49.60L77.30-21Q77.30-15.40 80.05-12.60Q82.80-9.80 87.90-9.80L87.90-9.80Q93.70-9.80 96.90-13.65Q100.10-17.50 100.10-24.40L100.10-24.40L100.10-49.60L112.70-49.60L112.70 8.80Q112.70 13.90 109.70 16.95Q106.70 20 101.70 20L101.70 20Z M154 1.40L154 1.40Q147.30 1.40 143.70-0.90Q140.10-3.20 138.40-6L138.40-6L136.60-6L136.60 0L124.20 0L124.20-70L136.80-70L136.80-43.90L138.60-43.90Q140.20-46.50 143.75-48.75Q147.30-51 154-51L154-51Q160-51 165.10-48.05Q170.20-45.10 173.30-39.40Q176.40-33.70 176.40-25.60L176.40-25.60L176.40-24Q176.40-15.90 173.30-10.20Q170.20-4.50 165.10-1.55Q160 1.40 154 1.40ZM150.20-9.60L150.20-9.60Q156-9.60 159.90-13.35Q163.80-17.10 163.80-24.30L163.80-24.30L163.80-25.30Q163.80-32.50 159.95-36.25Q156.10-40 150.20-40L150.20-40Q144.40-40 140.50-36.25Q136.60-32.50 136.60-25.30L136.60-25.30L136.60-24.30Q136.60-17.10 140.50-13.35Q144.40-9.60 150.20-9.60Z M208.10 1.40L208.10 1.40Q200.70 1.40 195.05-1.75Q189.40-4.90 186.25-10.65Q183.10-16.40 183.10-24.20L183.10-24.20L183.10-25.40Q183.10-33.20 186.20-38.95Q189.30-44.70 194.90-47.85Q200.50-51 207.90-51L207.90-51Q215.20-51 220.60-47.75Q226-44.50 229-38.75Q232-33 232-25.40L232-25.40L232-21.10L195.90-21.10Q196.10-16 199.70-12.80Q203.30-9.60 208.50-9.60L208.50-9.60Q213.80-9.60 216.30-11.90Q218.80-14.20 220.10-17L220.10-17L230.40-11.60Q229-9 226.35-5.95Q223.70-2.90 219.30-0.75Q214.90 1.40 208.10 1.40ZM196-30.50L196-30.50L219.20-30.50Q218.80-34.80 215.75-37.40Q212.70-40 207.80-40L207.80-40Q202.70-40 199.70-37.40Q196.70-34.80 196-30.50Z" fill="#ffffff"/>
+      <circle class="dot" cx="250.7" cy="-8.5" r="8.5" fill="url(#d)"/>
+    </svg>
+    <div class="line" aria-hidden="true"></div>
+    <div class="status" id="status" role="status" aria-live="polite">Starting Vybe…</div>
+  </main>
+
+<script>
+(() => {
+  // Driven by the desktop shell.
+  const el = document.getElementById("status");
+  let pending = null;
+  window.vybeLoading = {
+    status(text) {
+      if (!text || text === el.textContent) return;
+      clearTimeout(pending);
+      el.classList.add("swap");
+      pending = setTimeout(() => { el.textContent = text; el.classList.remove("swap"); }, 160);
+    },
+    finish() {
+      document.body.classList.add("done");
+      return new Promise((r) => setTimeout(r, 360));
+    },
+  };
+})();
+</script>
+</body>
+</html>

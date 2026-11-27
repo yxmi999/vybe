@@ -1,0 +1,245 @@
+@import "tailwindcss";
+/* Light theme: html.light remaps the palette (see scripts/gen-light-theme.mjs). */
+@import "./theme-light.css";
+
+/* ════════════════════════════════════════════════════════════════════
+   VYBE design system
+   Neutral near-black, cobalt signal accent, Syne display type,
+   IBM Plex Mono for timestamps, subtle grain.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Video text fonts — the SAME files the server burns into exports
+   (public/fonts, registry in lib/clip-filters TEXT_FONTS), so the editor
+   preview matches the export. Each file is one specific weight; declaring a
+   weight range stops the browser from synthesizing a fake bold on top. */
+@font-face { font-family: "Vybe Bold";      src: url("/fonts/Montserrat-ExtraBold.ttf") format("truetype");    font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Sans";      src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");        font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Impact";    src: url("/fonts/Anton-Regular.ttf") format("truetype");           font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Condensed"; src: url("/fonts/BebasNeue-Regular.ttf") format("truetype");       font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Serif";     src: url("/fonts/DMSerifDisplay-Regular.ttf") format("truetype");  font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Round";     src: url("/fonts/LilitaOne-Regular.ttf") format("truetype");       font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Marker";    src: url("/fonts/PermanentMarker-Regular.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Vybe Mono";      src: url("/fonts/SpaceMono-Bold.ttf") format("truetype");          font-weight: 100 900; font-display: swap; }
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --signal: #335cba;
+  --signal-bright: #4a76d4;
+  /* Surfaces (darkest page → most elevated card); light values in theme-light.css */
+  --d08: #080808;
+  --d0a: #0a0a0a;
+  --d0b: #0b0b0b;
+  --d0c: #0c0c0c;
+  --d0e: #0e0e0e;
+  --d0f: #0f0f0f;
+  --d11: #111111;
+  --d12: #121212;
+  --d14: #141414;
+  --d16: #161616;
+  --d1a: #1a1a1a;
+  --d1c: #1c1c1c;
+  --d1d: #1d1d1d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-d08: var(--d08);
+  --color-d0a: var(--d0a);
+  --color-d0b: var(--d0b);
+  --color-d0c: var(--d0c);
+  --color-d0e: var(--d0e);
+  --color-d0f: var(--d0f);
+  --color-d11: var(--d11);
+  --color-d12: var(--d12);
+  --color-d14: var(--d14);
+  --color-d16: var(--d16);
+  --color-d1a: var(--d1a);
+  --color-d1c: var(--d1c);
+  --color-d1d: var(--d1d);
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-brand), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Re-tune the stock palettes the app was built on. Every `violet-*`
+   utility in the codebase now renders as cobalt signal; `fuchsia-*`
+   becomes cyan, so violet→fuchsia gradients read as cobalt→cyan. */
+@theme {
+  --color-violet-50:  #f0f4fc;
+  --color-violet-100: #dee8f9;
+  --color-violet-200: #c2d3f2;
+  --color-violet-300: #98b4e9;
+  --color-violet-400: #6d92dd;
+  --color-violet-500: #4a76d4;
+  --color-violet-600: #335cba;
+  --color-violet-700: #2a4a9c;
+  --color-violet-800: #223b7c;
+  --color-violet-900: #1c2f5f;
+  --color-violet-950: #101b3a;
+
+  --color-fuchsia-50:  #ecfeff;
+  --color-fuchsia-100: #cffafe;
+  --color-fuchsia-200: #a5f3fc;
+  --color-fuchsia-300: #67e8f9;
+  --color-fuchsia-400: #22d3ee;
+  --color-fuchsia-500: #06b6d4;
+  --color-fuchsia-600: #0891b2;
+  --color-fuchsia-700: #0e7490;
+  --color-fuchsia-800: #155e75;
+  --color-fuchsia-900: #164e63;
+  --color-fuchsia-950: #083344;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* ── Grain: the air of the room ──────────────────────────────────── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Selection & scrollbar ───────────────────────────────────────── */
+::selection {
+  background: var(--signal);
+  color: #f0f4fc;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Motion ──────────────────────────────────────────────────────── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-rise {
+  opacity: 0;
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Gentle zero-g bob for the Auto-Pilot astronaut. */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-6px) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[float"] { animation: none !important; }
+}
+.d-1 { animation-delay: 0.05s; }
+.d-2 { animation-delay: 0.12s; }
+.d-3 { animation-delay: 0.19s; }
+.d-4 { animation-delay: 0.26s; }
+.d-5 { animation-delay: 0.33s; }
+.d-6 { animation-delay: 0.40s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise { animation: none; opacity: 1; }
+}
+
+/* ── Landing hero ────────────────────────────────────────────────── */
+@keyframes hero-blur-in {
+  from { opacity: 0; transform: translateY(0.35em); filter: blur(12px); }
+  /* filter: none (not blur(0)) so finished words drop their compositing layer */
+  to   { opacity: 1; transform: none; filter: none; }
+}
+.hero-blur-in {
+  opacity: 0;
+  animation: hero-blur-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Hero headline size: as big as possible while the widest word combination
+   still fits — phones: one part per line (widest ≈ 9.1em); sm+: two lines
+   (widest ≈ 15.2em). Fixed structure = no re-wrapping as the words rotate. */
+.hero-title { font-size: min(40px, calc((100vw - 40px) / 9.4)); }
+@media (min-width: 640px) { .hero-title { font-size: min(72px, calc((100vw - 64px) / 15.8)); } }
+
+/* Light sweep across the cobalt→cyan gradient text. */
+@keyframes hero-shimmer { to { background-position: -200% 0; } }
+.hero-shimmer {
+  background-image: linear-gradient(100deg, #98b4e9 0%, #4a76d4 30%, #e8f1ff 45%, #22d3ee 60%, #6d92dd 80%, #98b4e9 100%);
+  background-size: 200% 100%;
+  animation: hero-shimmer 6s linear infinite;
+}
+
+/* Drifting aurora blobs behind the hero. */
+@keyframes aurora-a {
+  0%, 100% { transform: translate(-10%, 0) scale(1); }
+  50%      { transform: translate(12%, 8%) scale(1.2); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate(10%, 6%) scale(1.1); }
+  50%      { transform: translate(-14%, -6%) scale(0.9); }
+}
+.aurora-a { animation: aurora-a 18s ease-in-out infinite; }
+.aurora-b { animation: aurora-b 22s ease-in-out infinite; }
+
+/* Idle float for the hero phone (separate from the pointer tilt). */
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.hero-float { animation: hero-float 6s ease-in-out infinite; }
+
+/* One-word caption pop (overshoot, then settle). */
+@keyframes hero-pop {
+  0%   { transform: scale(0.3) rotate(-6deg); opacity: 0; }
+  60%  { transform: scale(1.18) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.hero-pop { display: inline-block; animation: hero-pop 0.32s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-pop { animation: none; }
+  .hero-blur-in { animation: none; opacity: 1; }
+  .hero-shimmer, .aurora-a, .aurora-b, .hero-float { animation: none; }
+}
+
+/* Uppercase mono micro-label */
+.cue {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ── Hover-revealed controls ─────────────────────────────────────────
+   Controls that fade in when the row/card is hovered. Phones have no
+   hover, so the hiding only applies on devices that actually support
+   it — on touch the controls are simply always visible. */
+@media (hover: hover) {
+  .hover-reveal { opacity: 0; }
+  .group:hover .hover-reveal,
+  .group:focus-within .hover-reveal { opacity: 1; }
+}
+
+/* ── Light theme: scrollbars (palette lives in theme-light.css) ──── */
+html.light * { scrollbar-color: #c7c7cf transparent; }
+html.light *::-webkit-scrollbar-thumb { background: #c7c7cf; }
+html.light *::-webkit-scrollbar-thumb:hover { background: #a9a9b3; }
+html.light body::after { opacity: 0.025; }
+
+/* Animated subtitle look: the active word pops in (mirrors POP_FROM/POP_MS in lib/subtitle-look). */
+@keyframes sub-pop { from { transform: scale(var(--pop-from, 0.72)); } to { transform: scale(var(--pop-to, 1)); } }

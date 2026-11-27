@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vybe — Pricing, Costs & Profit Estimate (Beta)</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --panel: #121212; --panel2: #161616; --line: rgba(255,255,255,.08);
+    --txt: #ededed; --mut: rgba(255,255,255,.45); --mut2: rgba(255,255,255,.30);
+    --violet: #8b5cf6; --violet-soft: rgba(139,92,246,.14); --violet-line: rgba(139,92,246,.28);
+    --green: #34c759; --amber: #f5a623; --red: #ff5a4d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--txt);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 80px; }
+  header.top { margin-bottom: 36px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .brand .dot { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg,#a78bfa,#6d28d9); display:inline-block; }
+  h1 { font-size: 30px; letter-spacing: -.02em; margin: 22px 0 6px; }
+  h2 { font-size: 20px; letter-spacing: -.01em; margin: 48px 0 14px; padding-top: 8px; }
+  h2 .num { color: var(--violet); font-variant-numeric: tabular-nums; margin-right: 8px; }
+  p.lead { color: var(--mut); max-width: 70ch; margin: 0; }
+  .sub { color: var(--mut); font-size: 13.5px; margin: 4px 0 0; }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+          padding:4px 10px; border-radius:999px; background:var(--violet-soft); color:#c4b5fd; border:1px solid var(--violet-line); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--mut); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr:hover { background: rgba(255,255,255,.018); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 6px 16px 14px; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .tag.live { background: rgba(52,199,89,.12); color: #6ee787; border:1px solid rgba(52,199,89,.25); }
+  .tag.text { background: rgba(245,166,35,.12); color:#f7c46c; border:1px solid rgba(245,166,35,.25); }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .card.feat { border-color: var(--violet-line); background: linear-gradient(180deg, rgba(139,92,246,.06), rgba(139,92,246,.02)); }
+  .card .price { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin: 6px 0 2px; }
+  .card .price span { font-size: 14px; font-weight: 600; color: var(--mut); }
+  .card h3 { margin: 0; font-size: 16px; }
+  .card ul { list-style: none; padding: 0; margin: 14px 0 0; }
+  .card li { padding: 5px 0 5px 22px; position: relative; color: var(--mut); font-size: 13.5px; }
+  .card li::before { content: "✓"; position: absolute; left: 0; color: var(--violet); font-weight: 700; }
+  .card li.no { color: var(--mut2); }
+  .card li.no::before { content: "—"; color: var(--mut2); }
+  .total td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: none; }
+  .pos { color: #6ee787; } .neg { color: #ff7a6e; } .em { color: var(--txt); font-weight: 600; }
+  .note { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--violet); border-radius: 10px;
+          padding: 14px 16px; color: var(--mut); font-size: 13px; margin-top: 18px; }
+  .note b { color: var(--txt); }
+  .foot { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--mut2); font-size: 12.5px; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .cards, .grid2 { grid-template-columns: 1fr; } h1 { font-size: 25px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand"><span class="dot"></span> Vybe</div>
+    <h1>Pricing, Costs &amp; Profit Estimate <span style="color:var(--mut2);font-weight:600;font-size:18px">· Beta</span></h1>
+    <p class="lead">An internal business sheet for the <b>Vybe beta</b> — what it offers, a proposed pricing
+      structure, the real per-unit costs behind each feature, and a profit model at three scales.
+      This sheet covers <b>only the beta feature set</b>; AI generation is not included.</p>
+    <p class="sub">Prepared 2026‑06‑16 · All figures are planning estimates in USD — adjust the assumptions to your real numbers.</p>
+  </header>
+
+  <!-- ───────────────────────── WHAT VYBE OFFERS ───────────────────────── -->
+  <h2><span class="num">1.</span>What the Vybe beta offers</h2>
+  <p class="sub">Everything below is built, working, and in the beta.</p>
+  <div class="panel" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Feature</th><th>What it does</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Multi-platform scheduling</b></td><td>Compose &amp; auto-publish to YouTube, TikTok, Instagram, X, Twitch, Kick from one queue.</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>Content calendar</b></td><td>Monthly drag-and-drop view of every scheduled post.</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>Auto-Clipper</b></td><td>Pull VODs from Twitch, Kick, YouTube &amp; Rumble; auto-find highlights (most-replayed heatmaps, chat spikes, audio loudness).</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>Clip editor</b></td><td>Browser-side trim, crop, captions, subtitles &amp; export (FFmpeg — no server timeouts).</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>AI editing assistant</b></td><td>Plain-language edit → sets trim, crop, caption, speed automatically.</td><td><span class="tag text">Live · text AI</span></td></tr>
+        <tr><td><b>AI titles, captions &amp; hashtags</b></td><td>One-click suggestions from the clip/post (vision model reads frames).</td><td><span class="tag text">Live · text AI</span></td></tr>
+        <tr><td><b>Auto-subtitles</b></td><td>Auto-transcribe spoken words into styled captions.</td><td><span class="tag text">Live · text AI</span></td></tr>
+        <tr><td><b>Analytics</b></td><td>Likes, reach, impressions &amp; engagement rate across platforms.</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>Auto-Respond</b></td><td>Keyword rules auto-reply to comments.</td><td><span class="tag live">Live</span></td></tr>
+        <tr><td><b>To-Do &amp; accounts</b></td><td>Task list + OAuth account connections.</td><td><span class="tag live">Live</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ───────────────────────── PRICING TIERS ───────────────────────── -->
+  <h2><span class="num">2.</span>Proposed pricing</h2>
+  <p class="sub">Three tiers. Free is the funnel; Creator is the volume plan; Pro is the power/team plan.
+    Annual billing at ~2 months free (×10) is assumed for blended ARPU later.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Free</h3>
+      <div class="price">$0</div>
+      <div class="sub">The funnel / try-before-buy</div>
+      <ul>
+        <li>3 connected accounts</li>
+        <li>10 scheduled posts / mo</li>
+        <li>Clip editor (with watermark)</li>
+        <li>5 auto-clips / mo</li>
+        <li>Basic analytics</li>
+        <li class="no">AI titles / captions</li>
+        <li class="no">Auto-Respond</li>
+      </ul>
+    </div>
+    <div class="card feat">
+      <span class="pill">Most popular</span>
+      <h3 style="margin-top:10px">Creator</h3>
+      <div class="price">$10<span> / mo</span></div>
+      <div class="sub">For solo creators shipping daily</div>
+      <ul>
+        <li>6 connected accounts</li>
+        <li>Unlimited scheduling</li>
+        <li>Clip editor, no watermark</li>
+        <li>Full Auto-Clipper</li>
+        <li>AI titles, captions, hashtags</li>
+        <li>Auto-subtitles</li>
+        <li>Auto-Respond + full analytics</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Pro</h3>
+      <div class="price">$25<span> / mo</span></div>
+      <div class="sub">For teams &amp; high-volume channels</div>
+      <ul>
+        <li>Everything in Creator</li>
+        <li>15 accounts + team seats</li>
+        <li>Priority clip processing</li>
+        <li>High Auto-Clipper volume</li>
+        <li>Advanced analytics</li>
+        <li>Priority support</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── PROVIDER COSTS ───────────────────────── -->
+  <h2><span class="num">3.</span>What each feature costs us (unit costs)</h2>
+  <p class="sub">The per-call provider prices behind the beta features. None of them are expensive —
+    the beta has no paid media-generation, so it's a near-pure software cost structure.</p>
+  <div class="panel" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Service</th><th>Used for</th><th class="num">Unit cost</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Gemini Flash (vision)</td><td>AI titles, captions, hashtags, edit assistant</td><td class="num">~$0.003 / call</td><td>Reads a few frames + short output</td></tr>
+        <tr><td>Gemini (transcription)</td><td>Auto-subtitles</td><td class="num">~$0.01 / clip</td><td>Per processed clip</td></tr>
+        <tr><td>yt-dlp + FFmpeg compute</td><td>Auto-Clipper download &amp; render</td><td class="num">~$0.01 / clip</td><td>Server CPU (Active CPU pricing)</td></tr>
+        <tr><td>Vercel Blob + bandwidth</td><td>Storing &amp; serving clips</td><td class="num">~$0.02–0.05 / GB</td><td>~20–50 MB per clip</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>The whole AI bill is cents.</b> Every AI feature in the beta is text/vision only —
+    fractions of a cent per use. There is no per-generation media cost, which is why gross margins land in
+    the mid-80s% (below).</div>
+
+  <!-- ───────────────────────── COST TO SERVE ───────────────────────── -->
+  <h2><span class="num">4.</span>Monthly cost-to-serve &amp; gross margin per user</h2>
+  <p class="sub">Estimated cost of an <i>active</i> paying user per month at the beta feature set.
+    Assumes typical usage; light users cost far less.</p>
+  <div class="grid2">
+    <div class="panel">
+      <table>
+        <thead><tr><th>Creator — $10/mo</th><th class="num">Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Auto-Clipper · 40 clips</td><td class="num">$0.40</td></tr>
+          <tr><td>AI text · 60 calls</td><td class="num">$0.18</td></tr>
+          <tr><td>Auto-subtitles · 15</td><td class="num">$0.15</td></tr>
+          <tr><td>Storage + bandwidth</td><td class="num">$0.50</td></tr>
+          <tr><td>Hosting share</td><td class="num">$0.50</td></tr>
+          <tr><td>Payment processing (2.9%+30¢)</td><td class="num">$0.59</td></tr>
+          <tr class="total"><td>Cost to serve</td><td class="num">$2.32</td></tr>
+          <tr class="total"><td>Gross margin</td><td class="num pos">$7.68 · 77%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Pro — $25/mo</th><th class="num">Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Auto-Clipper · 150 clips</td><td class="num">$1.50</td></tr>
+          <tr><td>AI text · 200 calls</td><td class="num">$0.60</td></tr>
+          <tr><td>Auto-subtitles · 60</td><td class="num">$0.60</td></tr>
+          <tr><td>Storage + bandwidth</td><td class="num">$2.00</td></tr>
+          <tr><td>Hosting share</td><td class="num">$1.00</td></tr>
+          <tr><td>Payment processing (2.9%+30¢)</td><td class="num">$1.03</td></tr>
+          <tr class="total"><td>Cost to serve</td><td class="num">$6.73</td></tr>
+          <tr class="total"><td>Gross margin</td><td class="num pos">$18.27 · 73%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note">A <b>Free</b> user costs roughly <b>$0.50/mo</b> to serve (capped usage, watermarked exports,
+    no AI text). That's the customer-acquisition cost baked into the funnel.</div>
+
+  <!-- ───────────────────────── PROFIT MODEL ───────────────────────── -->
+  <h2><span class="num">5.</span>Profit estimate at three scales</h2>
+  <p class="sub">Assumptions: paid mix <b>70% Creator / 30% Pro</b> → blended ARPU <b>$17.50</b>, blended gross
+    margin <b>$10.86/paid user</b>. Free-to-paid ratio <b>18:1</b> (free users cost $0.50 each). Fixed
+    overhead = base hosting, domains, email, tools.</p>
+  <div class="panel" style="margin-top:14px">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th class="num">Starting<br>250 paid</th>
+          <th class="num">Growing<br>1,000 paid</th>
+          <th class="num">Scaling<br>5,000 paid</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Free users (18×)</td><td class="num">4,500</td><td class="num">18,000</td><td class="num">90,000</td></tr>
+        <tr><td>Monthly revenue</td><td class="num">$4,375</td><td class="num">$17,500</td><td class="num">$87,500</td></tr>
+        <tr><td>Paid gross margin</td><td class="num">$2,714</td><td class="num">$10,857</td><td class="num">$54,285</td></tr>
+        <tr><td>Free-user cost</td><td class="num neg">−$2,250</td><td class="num neg">−$9,000</td><td class="num neg">−$45,000</td></tr>
+        <tr><td>Fixed overhead</td><td class="num neg">−$150</td><td class="num neg">−$400</td><td class="num neg">−$1,500</td></tr>
+        <tr class="total"><td><span class="em">Estimated monthly profit</span></td><td class="num pos">~$314</td><td class="num pos">~$1,457</td><td class="num pos">~$7,785</td></tr>
+        <tr class="total"><td><span class="em">Annualized</span></td><td class="num pos">~$4K</td><td class="num pos">~$17K</td><td class="num pos">~$93K</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub" style="margin-top:26px">Because the free tier is ~83% of total cost at 18:1, halving the
+    per-free-user cost is the highest-leverage change available. Side by side:</p>
+  <div class="panel" style="margin-top:10px">
+    <table>
+      <thead><tr><th>Monthly profit by free-user cost (18:1)</th><th class="num">250 paid</th><th class="num">1,000 paid</th><th class="num">5,000 paid</th></tr></thead>
+      <tbody>
+        <tr><td>Free user @ <b>$0.50</b> — today's assumption</td><td class="num">~$314</td><td class="num">~$1,457</td><td class="num">~$7,785</td></tr>
+        <tr><td>Free user @ <b>$0.25</b> — optimized</td><td class="num pos">~$1,439</td><td class="num pos">~$5,957</td><td class="num pos">~$30,285</td></tr>
+        <tr class="total"><td>Improvement</td><td class="num pos">~4.6×</td><td class="num pos">~4.1×</td><td class="num pos">~3.9×</td></tr>
+        <tr><td style="color:var(--mut2)">Annualized @ $0.25</td><td class="num" style="color:var(--mut2)">~$17K</td><td class="num" style="color:var(--mut2)">~$71K</td><td class="num" style="color:var(--mut2)">~$363K</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">Before taxes and any owner salary. Gross margins are healthy (<b>Creator 77%, Pro 73%</b>),
+    but at <b>18 free users per paid user</b> the free tier is the dominant cost — at $0.50 each it eats
+    <b>~83% of paid gross margin</b>. Because almost all the cost lives in the free tier, halving it
+    <b>~4×s net profit</b> (the paid side barely moves). Getting free-user cost to <b>$0.25</b> is the single
+    most important lever — see §6.</div>
+
+  <!-- ───────────────────────── COST MINIMIZATION ───────────────────────── -->
+  <h2><span class="num">6.</span>How to minimize cost</h2>
+  <p class="sub">Ordered by impact. The first two get free-user cost from $0.50 → $0.25 and cut the largest
+    variable line for everyone — they're where almost all the savings are.</p>
+  <div class="panel" style="margin-top:14px">
+    <table>
+      <thead><tr><th style="width:34%">Lever</th><th>What to do</th><th class="num">Impact</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>1. Cap the free tier</b><br><span style="color:var(--mut2);font-size:12px">biggest single lever</span></td>
+          <td>Expire free-user clips after ~7 days (don't store forever), limit exports to 720p, drop to
+            3 auto-clips/mo, a ~2&nbsp;GB storage quota, and a hard watermark. Free users shouldn't accrue
+            permanent storage or heavy compute.</td>
+          <td class="num pos">$0.50 → ~$0.25<br>≈ 4× profit</td>
+        </tr>
+        <tr>
+          <td><b>2. Fix storage &amp; bandwidth architecture</b></td>
+          <td>Move clip storage off Vercel Blob to a <b>zero-egress object store (Cloudflare R2)</b> behind a
+            CDN — egress is the silent killer. <b>Never persist source VOD downloads</b>: process and discard,
+            keep only the final export. Compress exports.</td>
+          <td class="num pos">Cuts the top variable line for <i>all</i> tiers</td>
+        </tr>
+        <tr>
+          <td><b>3. Keep heavy editing client-side</b></td>
+          <td>Trim/crop/caption/export already run in the browser via FFmpeg — near-zero server cost. Preserve
+            that; resist moving rendering server-side as you add features.</td>
+          <td class="num pos">Keeps compute ≈ $0</td>
+        </tr>
+        <tr>
+          <td><b>4. Make the Auto-Clipper efficient</b></td>
+          <td>Cache VOD scans &amp; heatmaps, dedupe repeated scans of the same VOD, and download only the
+            highlight sections (yt-dlp ranges) rather than whole VODs.</td>
+          <td class="num pos">Cuts compute + bandwidth</td>
+        </tr>
+        <tr>
+          <td><b>5. Trim AI-text spend</b></td>
+          <td>Stay on the cheapest Gemini Flash tier, debounce/cache title &amp; hashtag suggestions so a
+            user can't spam calls, and keep AI text off the free plan.</td>
+          <td class="num">Already cents — keep it there</td>
+        </tr>
+        <tr>
+          <td><b>6. Push annual billing</b></td>
+          <td>One 30¢ processing fee per year instead of per month, and annual plans cut churn sharply.</td>
+          <td class="num pos">+~$3/yr per payer, lower churn</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>Bottom line.</b> Don't chase the paid-side costs — they're already 73–77% margin.
+    Profit at this pricing is decided almost entirely by <b>(a)</b> how cheap a free user is and <b>(b)</b>
+    the free-to-paid ratio. Levers 1 &amp; 2 attack (a) directly; a better onboarding/upgrade flow attacks (b).</div>
+
+  <div class="foot">
+    Internal planning document · figures are estimates and should be replaced with measured numbers once
+    live. Provider prices (Gemini, Vercel) move over time — re-check before launch. Scope: the beta feature
+    set only; AI generation is intentionally not part of this version or this model.
+  </div>
+
+</div>
+</body>
+</html>
