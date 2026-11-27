@@ -334,6 +334,8 @@ export default function ScheduleBuilder({ ytAccounts, campaigns, maxClipsPerRun,
     const payload = {
       platform: "twitch", channel: channel.trim(), targetAccountId,
       cadence, days, postTimes, clipsPerRun, autoPost, minConfidence: autoPost ? minConfidence : 0, template, liveMode,
+      // Post times are the user's local clock; the server converts from this zone.
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     const res = await fetch(isEdit ? `/api/auto-pilot/${editPilot!.id}` : "/api/auto-pilot", {
       method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),

@@ -243,7 +243,8 @@ function ComposeInner() {
         const res = await fetch("/api/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId, platform: acc?.platform, content, mediaUrls, metadata, scheduledAt, status }),
+          // datetime-local is the user's wall clock; send a real UTC instant.
+          body: JSON.stringify({ accountId, platform: acc?.platform, content, mediaUrls, metadata, scheduledAt: new Date(scheduledAt).toISOString(), status }),
         });
         if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed to save"); }
       }

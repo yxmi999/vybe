@@ -5,6 +5,7 @@ import { autoPilots, accounts } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserPlan, cappedClipsPerRun } from "@/lib/plan";
 import { cleanPilotTemplate } from "@/lib/auto-pilot";
+import { safeTimeZone } from "@/lib/timezone";
 
 const CADENCES = ["daily", "weekly", "specific_days"];
 
@@ -46,6 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const times = body.postTimes.filter((t: unknown) => typeof t === "string" && /^([01]?\d|2[0-3]):[0-5]\d$/.test(t));
     if (times.length) patch.postTimes = JSON.stringify(times);
   }
+  if (typeof body.timezone === "string") patch.timezone = safeTimeZone(body.timezone);
   if (typeof body.cadence === "string" && CADENCES.includes(body.cadence)) patch.cadence = body.cadence;
   // Keep cadence and its day list consistent: daily carries no days; otherwise
   // store the provided list. (The client always sends `days`, so guard on the

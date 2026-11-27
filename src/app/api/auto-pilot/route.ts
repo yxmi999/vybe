@@ -8,6 +8,7 @@ import {
   autoClipsUsedThisMonth, autoPilotUpgradeMessage, autoPilotLimitMessage,
 } from "@/lib/plan";
 import { initialNextRun, cleanPilotTemplate, pilotStats } from "@/lib/auto-pilot";
+import { safeTimeZone } from "@/lib/timezone";
 
 const CADENCES = ["daily", "weekly", "specific_days"];
 // The scheduler can only publish a video to YouTube today (Shorts). Other
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
   const {
     platform = "twitch", channel, targetAccountId,
     cadence, days, postTimes, clipsPerRun, minConfidence = 0,
-    autoPost = false, template, liveMode = false,
+    autoPost = false, template, liveMode = false, timezone,
   } = body;
 
   if (platform !== "twitch") return NextResponse.json({ error: "Only Twitch is supported right now." }, { status: 400 });
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
     cadence,
     days: cadence === "daily" ? null : JSON.stringify(dayList),
     postTimes: JSON.stringify(times),
+    timezone: safeTimeZone(timezone),
     clipsPerRun: cappedRun,
     minConfidence: conf,
     autoPost: !!autoPost,

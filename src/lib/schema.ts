@@ -234,6 +234,7 @@ export const autoPilots = sqliteTable("auto_pilots", {
   cadence: text("cadence").notNull(),              // 'daily' | 'weekly' | 'specific_days'
   days: text("days"),                              // JSON [0-6] for weekly/specific_days
   postTimes: text("post_times"),                   // JSON ["18:00","21:00"] local release slots
+  timezone: text("timezone"),                      // IANA zone postTimes/days are in (e.g. "Europe/Paris"); null = UTC
   clipsPerRun: integer("clips_per_run").default(3),
   minConfidence: integer("min_confidence").default(0), // 0-100; below → review even in auto mode
   autoPost: integer("auto_post", { mode: "boolean" }).default(false), // false = approval queue

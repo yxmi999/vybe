@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
     .limit(1);
   if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
 
+  // Store a canonical UTC ISO string: the scheduler compares it lexically
+  // against `new Date().toISOString()`. Clients send a UTC instant.
+  const when = new Date(scheduledAt);
+  if (!scheduledAt || Number.isNaN(when.getTime())) {
+    return NextResponse.json({ error: "Pick a valid date and time." }, { status: 400 });
+  }
+
   const [row] = await db
     .insert(posts)
     .values({
@@ -39,7 +46,7 @@ export async function POST(req: NextRequest) {
       content,
       mediaUrls: mediaUrls ? JSON.stringify(mediaUrls) : null,
       metadata: metadata ? JSON.stringify(metadata) : null,
-      scheduledAt,
+      scheduledAt: when.toISOString(),
       status: status ?? "scheduled",
     })
     .returning();

@@ -251,6 +251,7 @@ export async function migrate() {
     "ALTER TABLE auto_pilots ADD COLUMN live_state TEXT",
     "ALTER TABLE auto_pilots ADD COLUMN live_score_ref REAL",
     "ALTER TABLE auto_pilots ADD COLUMN live_windows INTEGER DEFAULT 0",
+    "ALTER TABLE auto_pilots ADD COLUMN timezone TEXT",
     "ALTER TABLE accounts ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE",
     "ALTER TABLE auto_responses ADD COLUMN last_checked_at TEXT",
     "ALTER TABLE users ADD COLUMN billing_provider TEXT",

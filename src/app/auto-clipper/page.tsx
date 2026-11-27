@@ -360,6 +360,7 @@ export default function AutoClipperPage() {
           moments: moments.slice(0, Math.min(weekCount, weekMax)).map((m) => ({ t: m.t, kind: m.kind })),
           postTimes: [weekTime],
           startDate: weekStart,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           status: weekSchedule ? "scheduled" : "draft",
           clipLen,
           styleRef: weekStyleRef || null,

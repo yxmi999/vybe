@@ -23,6 +23,7 @@ import { renderClip, type RenderClipInput } from "./clip-render";
 import { resolveStyle } from "./style-store";
 import { buildStyledRender } from "./styled-render";
 import { getUserPlan, checkAutoClipQuota, cappedClipsPerRun } from "./plan";
+import { safeTimeZone, zonedParts, zonedTimeToUtc, weekdayOf } from "./timezone";
 import { scoreClipVirality, viralityAvailable, type ViralityResult } from "./virality";
 import type { AutoPilot, Account } from "./schema";
 
@@ -73,37 +74,38 @@ function parseJsonArray<T>(raw: string | null | undefined, fallback: T[]): T[] {
   }
 }
 
-function eligibleDay(date: Date, cadence: string, days: number[]): boolean {
+function eligibleDay(weekday: number, cadence: string, days: number[]): boolean {
   if (cadence === "daily") return true;
-  return days.includes(date.getDay()); // weekly / specific_days
+  return days.includes(weekday); // weekly / specific_days
 }
+
+// Post times ("18:00") and weekdays are the user's wall clock in `tz` — the
+// server itself runs in UTC, so everything is converted via lib/timezone.
 
 /** Next datetime the engine should scan this pilot again (the watcher interval). */
-export function nextScanAt(from: Date, cadence: string, days: number[], postTimes: string[]): string {
+export function nextScanAt(from: Date, cadence: string, days: number[], postTimes: string[], tz = "UTC"): string {
+  const zone = safeTimeZone(tz);
   const [h, m] = (postTimes[0] ?? "12:00").split(":").map(Number);
+  const today = zonedParts(from, zone);
   for (let i = 1; i <= 14; i++) {
-    const d = new Date(from);
-    d.setDate(d.getDate() + i);
-    d.setHours(h || 0, m || 0, 0, 0);
-    if (eligibleDay(d, cadence, days)) return d.toISOString();
+    const d = zonedTimeToUtc(today.year, today.month, today.day + i, h || 0, m || 0, zone);
+    const local = zonedParts(d, zone);
+    if (eligibleDay(weekdayOf(local.year, local.month, local.day), cadence, days)) return d.toISOString();
   }
-  const d = new Date(from);
-  d.setDate(d.getDate() + 1);
-  d.setHours(h || 0, m || 0, 0, 0);
-  return d.toISOString();
+  return zonedTimeToUtc(today.year, today.month, today.day + 1, h || 0, m || 0, zone).toISOString();
 }
 
-/** Upcoming release slots for `count` produced clips, at the user's post times. */
-export function slotsForClips(from: Date, count: number, postTimes: string[]): string[] {
+/** Upcoming release slots for `count` produced clips, at the user's post times in `tz`. */
+export function slotsForClips(from: Date, count: number, postTimes: string[], tz = "UTC"): string[] {
+  const zone = safeTimeZone(tz);
   const times = postTimes.length ? postTimes : ["12:00"];
+  const today = zonedParts(from, zone);
   const out: string[] = [];
   for (let day = 0; day <= 30 && out.length < count; day++) {
     for (const t of times) {
       if (out.length >= count) break;
       const [h, m] = t.split(":").map(Number);
-      const d = new Date(from);
-      d.setDate(d.getDate() + day);
-      d.setHours(h || 0, m || 0, 0, 0);
+      const d = zonedTimeToUtc(today.year, today.month, today.day + day, h || 0, m || 0, zone);
       if (d.getTime() > from.getTime()) out.push(d.toISOString());
     }
   }
@@ -512,7 +514,7 @@ async function runScheduledPass(pilot: AutoPilot): Promise<RunResult> {
     // Confidence = relative match strength within this batch (top moment = 100).
     const maxScore = Math.max(...moments.map((m) => m.score), 1);
     const ctx = await loadContext(pilot, data.channel.displayName);
-    const slots = slotsForClips(now, moments.length, parseJsonArray<string>(pilot.postTimes, ["12:00"]));
+    const slots = slotsForClips(now, moments.length, parseJsonArray<string>(pilot.postTimes, ["12:00"]), pilot.timezone ?? "UTC");
 
     let produced = 0;
     for (let i = 0; i < moments.length; i++) {
@@ -747,7 +749,7 @@ async function markRun(
     // it after a total failure would also hide the stream from a retry.
     lastRunAt: opts.keepLastRun ? pilot.lastRunAt : ranAt.toISOString(),
     lastVodId: vodId,
-    nextRunAt: nextScanAt(ranAt, pilot.cadence, days, postTimes),
+    nextRunAt: nextScanAt(ranAt, pilot.cadence, days, postTimes, pilot.timezone ?? "UTC"),
     lastError: error,
     ...opts.patch,
   }).where(eq(autoPilots.id, pilot.id));

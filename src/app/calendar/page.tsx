@@ -76,7 +76,7 @@ function ScheduleModal({
     if (selectedAccounts.length === 0) { setError("Select at least one account."); return; }
     if (!content.trim()) { setError("Write some content first."); return; }
     const [h, m] = time.split(":").map(Number);
-    const scheduledAt = format(setMinutes(setHours(day, h), m), "yyyy-MM-dd'T'HH:mm");
+    const scheduledAt = setMinutes(setHours(day, h), m).toISOString(); // local pick → UTC instant
     setSaving(true);
     try {
       for (const accountId of selectedAccounts) {

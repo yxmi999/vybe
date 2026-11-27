@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { extractVodSection, type VodPlatform } from "@/lib/vod-extract";
 import { renderClip } from "@/lib/clip-render";
 import { slotsForClips } from "@/lib/auto-pilot";
+import { safeTimeZone, zonedTimeToUtc } from "@/lib/timezone";
 import { checkClipQuota, quotaMessage } from "@/lib/plan";
 import { resolveStyle } from "@/lib/style-store";
 import { buildStyledRender } from "@/lib/styled-render";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const {
     platform, vodRef, vodTitle = "", accountId,
-    moments = [], postTimes = ["12:00"], startDate, status = "draft", clipLen, styleRef,
+    moments = [], postTimes = ["12:00"], startDate, status = "draft", clipLen, styleRef, timezone,
   } = (await req.json()) as {
     platform?: VodPlatform;
     vodRef?: string;        // Twitch/YouTube video id, Kick uuid, or full Rumble URL
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     moments?: MomentIn[];
     postTimes?: string[];
     startDate?: string;     // YYYY-MM-DD; defaults to today
+    timezone?: string;      // IANA zone postTimes/startDate are in; defaults to UTC
     status?: "scheduled" | "draft";
     // Omitted, null, "auto", or "full" → each clip's length is picked
     // automatically per moment (silence-snapped); a number forces every clip
@@ -85,9 +87,12 @@ export async function POST(req: NextRequest) {
   if (want <= 0) return NextResponse.json({ error: quotaMessage(quota) }, { status: 403 });
 
   // First slot is at/after the chosen start date, never in the past.
-  const startOfDay = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
+  // startDate and postTimes are the user's wall clock in `tz` (server is UTC).
+  const tz = safeTimeZone(timezone);
+  const sd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate ?? "");
+  const startOfDay = sd ? zonedTimeToUtc(+sd[1], +sd[2], +sd[3], 0, 0, tz) : new Date();
   const from = new Date(Math.max(Date.now(), startOfDay.getTime()));
-  const slots = slotsForClips(from, want, postTimes.length ? postTimes : ["12:00"]);
+  const slots = slotsForClips(from, want, postTimes.length ? postTimes : ["12:00"], tz);
 
   const made: { url: string; scheduledAt: string; title: string; notes?: string[] }[] = [];
   const failures: string[] = [];
