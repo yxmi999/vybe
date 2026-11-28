@@ -38,6 +38,7 @@ import { styleLook } from "@/lib/clip-style";
 import { DEFAULT_SUBTITLE_LOOK, sanitizeSubtitleLook, chunkWindows, caseWord, ACTIVE_SCALE, type SubtitleLook } from "@/lib/subtitle-look";
 import { uploadFile } from "@/lib/upload-client";
 import { SFX_LIBRARY, SFX_KEYS, type SfxKey } from "@/lib/sfx-library";
+import { saveEditSession, loadEditSession } from "@/lib/edit-session";
 
 // Load a media file into memory for in-browser FFmpeg / audio analysis.
 // Local (blob:/"/") URLs are read directly. Files on our Vercel Blob store are
@@ -529,6 +530,17 @@ function ClipsInner() {
   // then strip the param so a refresh doesn't re-import. Deferred a tick so the
   // state updates don't run synchronously inside the effect body.
   useEffect(() => {
+    // "Back to editor" from Compose: reopen the saved project with its edits.
+    const resume = searchParams.get("resume");
+    if (resume) {
+      const t = setTimeout(() => {
+        const s = loadEditSession<NonNullable<ReturnType<typeof buildEditSession>>>(resume);
+        if (s) resumeEditSession(s.data);
+        else setFetchError("That editing session has expired — open the video again to keep editing.");
+        router.replace("/clips");
+      }, 0);
+      return () => clearTimeout(t);
+    }
     // A generated clip from the AI Studio comes in as a direct video URL via
     // ?gen= — load it straight (it's already on our storage), no fetch/resolve.
     const gen = searchParams.get("gen");
@@ -1345,6 +1357,46 @@ function ClipsInner() {
     setSubtitleEmoji(s.subtitleEmoji);
     setSubtitleX(s.subtitleX); setSubtitleY(s.subtitleY); setSubtitleSize(s.subtitleSize);
     setSubtitleLook(s.subtitleLook);
+  }
+
+  // ── Back-to-editor sessions ────────────────────────────────────────────────
+  // Everything needed to reopen this project from Compose. Only server-stored
+  // media is referenced (blob: URLs die with the page), so if the source never
+  // reached the server there's nothing restorable and Compose falls back to
+  // opening the exported video instead.
+  function buildEditSession() {
+    if (!clip || !localVideoUrl || localVideoUrl.startsWith("blob:")) return null;
+    return {
+      clip: { ...clip, videoUrl: localVideoUrl },
+      localVideoUrl,
+      edit: captureEditState(),
+      music: musicServerUrl ? { fileName: musicFileName, serverUrl: musicServerUrl, volume: musicVolume, duration: musicDuration } : null,
+      assets: assets
+        .filter((a) => !a.uploading && a.serverUrl && !a.serverUrl.startsWith("blob:"))
+        .map((a) => ({ ...a, localUrl: a.serverUrl })),
+    };
+  }
+
+  function goToCompose(exportUrl: string) {
+    if (!clip) return;
+    const session = buildEditSession();
+    const sessionId = session ? saveEditSession(session, exportUrl, clip.title) : null;
+    const params = new URLSearchParams({ videoUrl: exportUrl, videoTitle: clip.title });
+    if (sessionId) params.set("session", sessionId);
+    router.push(`/compose?${params}`);
+  }
+
+  function resumeEditSession(data: NonNullable<ReturnType<typeof buildEditSession>>) {
+    setFetchError(""); setUrl("");
+    resetEditState();
+    setClip(data.clip);
+    setLocalVideoUrl(data.localVideoUrl);
+    restoreEditState(data.edit);
+    if (data.music) {
+      setMusicFileName(data.music.fileName); setMusicServerUrl(data.music.serverUrl);
+      setMusicVolume(data.music.volume); setMusicDuration(data.music.duration);
+    }
+    setAssets(data.assets);
   }
 
   function undo() {
@@ -2200,7 +2252,7 @@ function ClipsInner() {
       // "export": derived from an already-counted clip — don't double-count.
       const exportUrl = await uploadFile(new File([blob], `${clip.title}.mp4`, { type: "video/mp4" }), "export");
 
-      router.push(`/compose?${new URLSearchParams({ videoUrl: exportUrl, videoTitle: clip.title })}`);
+      goToCompose(exportUrl);
     } catch (e) {
       // Surface the real FFmpeg error (last meaningful log lines) instead of a generic message.
       const meaningful = ffLogRef.current.filter((l) =>
@@ -2340,7 +2392,7 @@ function ClipsInner() {
         flagSaved();
         return;
       }
-      router.push(`/compose?${new URLSearchParams({ videoUrl: data.url, videoTitle: clip.title })}`);
+      goToCompose(data.url);
     } catch (e) {
       setProcessError(e instanceof Error ? e.message : "Processing failed");
       setProcessing(false);

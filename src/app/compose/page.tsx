@@ -4,13 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { platformIcon, safeFetch } from "@/lib/utils";
 import {
   Send, Save, X, Upload, Loader2, AlertCircle, CheckCircle2,
-  Film, Hash, Clock, ChevronDown, ChevronUp, Sparkles,
+  Film, Hash, Clock, ChevronDown, ChevronUp, Sparkles, ArrowLeft, Scissors, Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 import EmojiPicker, { insertEmoji } from "@/components/EmojiPicker";
 import PageHeader from "@/components/PageHeader";
 import { uploadFile as uploadToStorage } from "@/lib/upload-client";
 import TikTokPostModal from "@/components/TikTokPostModal";
+import { loadEditSession, deleteEditSession } from "@/lib/edit-session";
 
 type Account = { id: number; platform: string; username: string; isActive: boolean };
 
@@ -98,9 +99,11 @@ function ComposeInner() {
   const [content, setContent] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<null | "scheduled" | "draft" | "now">(null);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<null | "scheduled" | "draft" | "now">(null);
+  // Set when the editor handed off a restorable project (see lib/edit-session).
+  const [editSessionId, setEditSessionId] = useState<string | null>(null);
   const [hashtagIdeas, setHashtagIdeas] = useState<string[]>([]);
   const [hashtagsLoading, setHashtagsLoading] = useState(false);
   const [hashtagsError, setHashtagsError] = useState("");
@@ -134,9 +137,12 @@ function ComposeInner() {
     const titleParam = searchParams.get("videoTitle");
     const dateParam = searchParams.get("date");
     const timeParam = searchParams.get("time");
+    const sessionParam = searchParams.get("session");
     if (!videoUrl && !titleParam && !dateParam) return;
     // Defer a tick so these don't run synchronously inside the effect body.
     const t = setTimeout(() => {
+      // Only offer "Back to editor" if the session is still in this browser.
+      if (sessionParam && loadEditSession(sessionParam)) setEditSessionId(sessionParam);
       if (videoUrl) setMediaUrls([videoUrl]);
       if (titleParam) setVideoTitle(titleParam);
       if (dateParam) setScheduledAt(`${dateParam}T${timeParam ?? "12:00"}`);
@@ -221,7 +227,16 @@ function ComposeInner() {
     setHashtagIdeas((prev) => prev.filter((t) => !tags.includes(t)));
   }
 
-  async function save(status: "scheduled" | "draft") {
+  // Reopen the editor: with the saved project (all edits intact) when this
+  // browser still has its session, otherwise load the finished video as a new clip.
+  function openInEditor() {
+    if (editSessionId) { router.push(`/clips?resume=${encodeURIComponent(editSessionId)}`); return; }
+    if (!videoUrl) return;
+    router.push(`/clips?${new URLSearchParams({ gen: videoUrl, t: videoTitle || "Clip" })}`);
+  }
+
+  async function save(mode: "scheduled" | "draft" | "now") {
+    const status = mode === "draft" ? "draft" : "scheduled";
     setError("");
     if (selectedAccounts.length === 0) { setError("Select at least one account to post to."); return; }
     // TikTok posts go through the TikTok posting screen (explicit consent per
@@ -230,7 +245,8 @@ function ComposeInner() {
     if (targets.length === 0) { setError("TikTok can't be scheduled. Use “Post to TikTok” in the TikTok section."); return; }
     if (!content.trim() && !isVideoMode) { setError("Write some content first."); return; }
     if (isVideoMode && !videoTitle.trim() && !content.trim()) { setError("Add a title or caption for your video."); return; }
-    setSaving(true);
+    setSaving(mode);
+    const failures: string[] = [];
     try {
       for (const accountId of targets) {
         const acc = accounts.find((a) => a.id === accountId);
@@ -244,16 +260,30 @@ function ComposeInner() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           // datetime-local is the user's wall clock; send a real UTC instant.
-          body: JSON.stringify({ accountId, platform: acc?.platform, content, mediaUrls, metadata, scheduledAt: new Date(scheduledAt).toISOString(), status }),
+          body: JSON.stringify({
+            accountId, platform: acc?.platform, content, mediaUrls, metadata, status,
+            ...(mode === "now" ? { publishNow: true } : { scheduledAt: new Date(scheduledAt).toISOString() }),
+          }),
         });
-        if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed to save"); }
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error ?? "Failed to save");
+        if (mode === "now" && d.status === "failed") {
+          failures.push(`@${acc?.username ?? accountId}: ${d.errorMessage ?? "publishing failed"}`);
+        }
       }
-      setSaved(true);
+      if (failures.length > 0) {
+        // The failed posts are kept (status "failed") and can be retried from the dashboard.
+        setError(`Couldn't post to ${failures.join(" · ")}`);
+        return;
+      }
+      // Once it's scheduled or out, the temporary editor session isn't needed.
+      if (mode !== "draft") deleteEditSession(editSessionId);
+      setSaved(mode);
       setTimeout(() => router.push("/dashboard"), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
@@ -507,26 +537,38 @@ function ComposeInner() {
       )}
       {saved && (
         <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-          <CheckCircle2 size={14} /> Saved! Redirecting to dashboard…
+          <CheckCircle2 size={14} /> {saved === "now" ? "Posted!" : saved === "draft" ? "Draft saved!" : "Scheduled!"} Redirecting to dashboard…
         </div>
       )}
-      <div className="flex gap-3">
+      {saving === "now" && (
+        <p className="text-[11px] text-white/30">Uploading to the platform — videos can take a minute. Keep this tab open.</p>
+      )}
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={() => save("draft")}
-          disabled={saving || saved}
+          disabled={!!saving || !!saved}
           className="flex items-center gap-2 px-5 py-2.5 bg-white/[0.05] border border-white/[0.07] text-white/60 rounded-xl text-sm font-medium hover:bg-white/[0.08] disabled:opacity-50 transition-colors"
         >
-          <Save size={14} /> Save Draft
+          {saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Draft
+        </button>
+        <button
+          type="button"
+          onClick={() => save("now")}
+          disabled={!!saving || !!saved || selectedAccounts.length === 0}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white/[0.05] border border-violet-500/40 text-violet-200 rounded-xl text-sm font-semibold hover:bg-violet-500/15 disabled:opacity-50 transition-colors"
+        >
+          {saving === "now" ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+          {saving === "now" ? "Posting…" : "Post Now"}
         </button>
         <button
           type="button"
           onClick={() => save("scheduled")}
-          disabled={saving || saved || selectedAccounts.length === 0}
+          disabled={!!saving || !!saved || selectedAccounts.length === 0}
           className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-[0_0_20px_rgba(51,92,186,0.25)] disabled:shadow-none"
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          {saving ? "Scheduling…" : "Schedule Post"}
+          {saving === "scheduled" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          {saving === "scheduled" ? "Scheduling…" : "Schedule Post"}
         </button>
       </div>
     </div>
@@ -541,7 +583,18 @@ function ComposeInner() {
           eyebrow={isVideoMode ? "Compose · Video" : "Compose"}
           title={isVideoMode ? "Post your clip" : "Compose a post"}
           description={isVideoMode ? "Review your clip and schedule it across platforms." : "Create and schedule content across your accounts."}
-          actions={!isVideoMode && (
+          actions={isVideoMode ? (
+            <button
+              type="button"
+              onClick={openInEditor}
+              disabled={!!saving}
+              title={editSessionId ? "Reopen the project with all your edits" : "Open this finished video in the editor"}
+              className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] border border-white/[0.08] text-white/60 rounded-xl text-sm font-medium hover:bg-white/[0.08] hover:text-white/80 transition-colors disabled:opacity-50"
+            >
+              {editSessionId ? <ArrowLeft size={14} /> : <Scissors size={14} />}
+              {editSessionId ? "Back to editor" : "Edit in editor"}
+            </button>
+          ) : (
             <button
               type="button"
               onClick={() => fileRef.current?.click()}

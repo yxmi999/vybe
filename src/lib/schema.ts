@@ -142,7 +142,7 @@ export const posts = sqliteTable("posts", {
   mediaUrls: text("media_urls"), // JSON array of file paths
   metadata: text("metadata"), // JSON — e.g. { isShort: true }
   scheduledAt: text("scheduled_at").notNull(),
-  status: text("status").default("scheduled"), // 'scheduled' | 'published' | 'failed' | 'draft'
+  status: text("status").default("scheduled"), // 'scheduled' | 'publishing' (claimed, upload in progress) | 'published' | 'failed' | 'draft'
   platformPostId: text("platform_post_id"),
   errorMessage: text("error_message"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),

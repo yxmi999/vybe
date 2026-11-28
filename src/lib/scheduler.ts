@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, client } from "./db";
 import { posts, accounts, analytics } from "./schema";
 import { eq, and, lte } from "drizzle-orm";
 import axios from "axios";
@@ -67,8 +67,31 @@ async function getFreshYoutubeToken(account: typeof accounts.$inferSelect): Prom
   return tokens.access_token;
 }
 
+type PostRow = typeof posts.$inferSelect;
+type AccountRow = typeof accounts.$inferSelect;
+
+// A post moves scheduled → publishing → published/failed. Claiming it first
+// (an atomic conditional UPDATE) means the cron and "Post now" can never both
+// publish the same post, even if they run at the same moment.
+async function claimPost(postId: number): Promise<boolean> {
+  const res = await client.execute({
+    sql: "UPDATE posts SET status = 'publishing' WHERE id = ? AND status = 'scheduled'",
+    args: [postId],
+  });
+  return res.rowsAffected > 0;
+}
+
+// A post stuck in 'publishing' means the run publishing it died (timeout,
+// deploy). It may or may not have gone out, so don't retry blindly.
+const STUCK_PUBLISHING_MS = 30 * 60_000;
+
 export async function runScheduler() {
   const now = new Date().toISOString();
+
+  await db
+    .update(posts)
+    .set({ status: "failed", errorMessage: "Publishing was interrupted. Check the platform to see whether it went out before retrying." })
+    .where(and(eq(posts.status, "publishing"), lte(posts.scheduledAt, new Date(Date.now() - STUCK_PUBLISHING_MS).toISOString())));
 
   const due = await db
     .select({ post: posts, account: accounts })
@@ -77,6 +100,26 @@ export async function runScheduler() {
     .where(and(eq(posts.status, "scheduled"), lte(posts.scheduledAt, now)));
 
   for (const { post, account } of due) {
+    if (!(await claimPost(post.id))) continue; // already taken by another run / Post now
+    await publishClaimed(post, account);
+  }
+}
+
+/** Publish one post immediately (the "Post now" button). Returns the updated row. */
+export async function publishPostNow(postId: number): Promise<PostRow | null> {
+  const [row] = await db
+    .select({ post: posts, account: accounts })
+    .from(posts)
+    .innerJoin(accounts, eq(posts.accountId, accounts.id))
+    .where(eq(posts.id, postId))
+    .limit(1);
+  if (!row) return null;
+  if (await claimPost(postId)) await publishClaimed(row.post, row.account);
+  const [after] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+  return after ?? null;
+}
+
+async function publishClaimed(post: PostRow, account: AccountRow) {
     try {
       const mediaUrls: string[] = post.mediaUrls ? JSON.parse(post.mediaUrls) : [];
       let platformPostId: string | null = null;
@@ -156,5 +199,4 @@ export async function runScheduler() {
         .set({ status: "failed", errorMessage: message })
         .where(eq(posts.id, post.id));
     }
-  }
 }
