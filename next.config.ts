@@ -27,16 +27,16 @@ const nextConfig: NextConfig = {
     ],
   },
   // Code that reads files relative to process.cwd() makes the tracer pull in
-  // the whole project; keep the desktop bundle to what the server needs —
-  // and never the developer's own clips, DB or env files.
-  ...(desktopBuild ? {
-    outputFileTracingExcludes: {
-      "*": [
-        "./public/uploads/**", "./desktop/**", "./docs/**", "./scripts/**", "./src/**",
-        "./*.md", "./vybe.db*", "./.env*", "./**/.env", "./.git/**", "./.claude/**",
-      ],
-    },
-  } : {}),
+  // the whole project; keep every server bundle (web and desktop) to what the
+  // server needs — and never the developer's own clips, DB or env files.
+  // Each Vercel deployment's functions count against Function Storage.
+  outputFileTracingExcludes: {
+    "*": [
+      "./public/uploads/**", "./desktop/**", "./docs/**", "./scripts/**", "./src/**",
+      "./*.md", "./vybe.db*", "./.env*", "./**/.env", "./.git/**", "./.claude/**",
+      "./tsconfig.tsbuildinfo", "./package-lock.json",
+    ],
+  },
   serverExternalPackages: [
     "yt-dlp-exec",
     "@ffmpeg-installer/ffmpeg",
