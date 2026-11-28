@@ -78,6 +78,39 @@ export async function getChannelStats(accessToken: string) {
   };
 }
 
+// YouTube rejects ("invalid or empty video title") a title that is empty,
+// over 100 characters, or contains < or >. Descriptions: no < >, ≤ 5000 bytes.
+const TITLE_MAX = 100;
+const DESC_MAX_BYTES = 5000;
+
+function clipChars(s: string, max: number): string {
+  const chars = Array.from(s); // count emoji / non-Latin as one character, never split them
+  return chars.length <= max ? s : chars.slice(0, max - 1).join("").trimEnd() + "…";
+}
+
+function clipBytes(s: string, maxBytes: number): string {
+  if (Buffer.byteLength(s) <= maxBytes) return s;
+  let out = "";
+  for (const ch of s) {
+    if (Buffer.byteLength(out + ch) > maxBytes) break;
+    out += ch;
+  }
+  return out;
+}
+
+/** A title YouTube will accept: cleaned, never empty, ≤ 100 chars incl. " #Shorts". */
+export function youtubeTitle(title: string, description: string, isShort: boolean): string {
+  const clean = (s: string) => s.replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
+  let base = clean(title);
+  if (!base) base = clean(description.split("\n").find((l) => clean(l)) ?? "");
+  if (!base) base = "New video";
+  const tag = " #Shorts";
+  if (isShort && !base.includes("#Shorts")) {
+    return clipChars(base, TITLE_MAX - tag.length) + tag;
+  }
+  return clipChars(base, TITLE_MAX);
+}
+
 export async function uploadVideo(
   accessToken: string,
   localPath: string,
@@ -103,8 +136,9 @@ export async function uploadVideo(
   const fileSize = fileBuffer.length;
 
   // YouTube detects Shorts by aspect ratio + length; #Shorts tag helps discovery
-  const finalTitle = isShort && !title.includes("#Shorts") ? `${title} #Shorts` : title;
-  const finalDesc = isShort && !description.includes("#Shorts") ? `${description}\n#Shorts` : description;
+  const finalTitle = youtubeTitle(title, description, isShort);
+  const cleanDesc = description.replace(/[<>]/g, "");
+  const finalDesc = clipBytes(isShort && !cleanDesc.includes("#Shorts") ? `${cleanDesc}\n#Shorts` : cleanDesc, DESC_MAX_BYTES);
 
   // Step 1: Initiate resumable upload session
   const initRes = await axios.post(

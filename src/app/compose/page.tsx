@@ -649,7 +649,7 @@ function ComposeInner() {
                   value={videoTitle}
                   onChange={(e) => setVideoTitle(e.target.value)}
                   placeholder="Enter a title for your video"
-                  maxLength={150}
+                  maxLength={100} // YouTube's title limit
                   className="w-full text-sm text-white/70 outline-none placeholder:text-white/20 bg-transparent"
                 />
                 {videoDuration > 0 && (
