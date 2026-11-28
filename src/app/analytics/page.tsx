@@ -45,7 +45,7 @@ function platformPostUrl(platform: string, platformPostId: string | null, userna
 
 export default function AnalyticsPage() {
   const [rows, setRows] = useState<AnalyticsRow[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(true); // the background refresh on entry starts immediately
   const [active, setActive] = useState("all");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -61,9 +61,24 @@ export default function AnalyticsPage() {
   }
 
   useEffect(() => {
-    safeFetch("/api/analytics", undefined, []).then(setRows);
-    safeFetch("/api/campaigns", undefined, []).then(setCampaigns);
-    safeFetch("/api/analytics/goals", undefined, {}).then(setGoals);
+    let cancelled = false;
+    // Show saved metrics right away, then pull fresh numbers from the platforms
+    // in the background (skipping posts read in the last 5 min) and re-render.
+    safeFetch("/api/analytics", undefined, []).then((d) => { if (!cancelled) setRows(d); });
+    safeFetch("/api/campaigns", undefined, []).then((d) => { if (!cancelled) setCampaigns(d); });
+    safeFetch("/api/analytics/goals", undefined, {}).then((d) => { if (!cancelled) setGoals(d); });
+
+    fetch("/api/analytics?maxAgeMinutes=5", { method: "POST" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(async (res) => {
+        if (cancelled || !res?.refreshed) return;
+        const fresh = await safeFetch("/api/analytics", undefined, null);
+        if (!cancelled && fresh) setRows(fresh);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setRefreshing(false); });
+
+    return () => { cancelled = true; };
   }, []);
 
   // Optimistic local update after a video is moved to another campaign.
