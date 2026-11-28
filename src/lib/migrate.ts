@@ -63,6 +63,22 @@ export async function migrate() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS auto_response_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule_id INTEGER REFERENCES auto_responses(id) ON DELETE SET NULL,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+      comment_id TEXT NOT NULL,
+      comment_author TEXT,
+      comment_text TEXT,
+      reply_text TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_response_log_comment ON auto_response_log(account_id, comment_id);
+    CREATE INDEX IF NOT EXISTS idx_auto_response_log_created ON auto_response_log(account_id, created_at);
+
     CREATE TABLE IF NOT EXISTS todos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -242,6 +258,7 @@ export async function migrate() {
     "ALTER TABLE posts ADD COLUMN metadata TEXT",
     "ALTER TABLE posts ADD COLUMN campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL",
     "ALTER TABLE campaigns ADD COLUMN min_payout REAL",
+    "ALTER TABLE campaigns ADD COLUMN goals TEXT",
     "ALTER TABLE auto_pilots ADD COLUMN live_mode INTEGER DEFAULT 0",
     "ALTER TABLE auto_pilots ADD COLUMN live_vod_id TEXT",
     "ALTER TABLE auto_pilots ADD COLUMN live_offset REAL DEFAULT 0",
@@ -254,6 +271,9 @@ export async function migrate() {
     "ALTER TABLE auto_pilots ADD COLUMN timezone TEXT",
     "ALTER TABLE accounts ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE",
     "ALTER TABLE auto_responses ADD COLUMN last_checked_at TEXT",
+    "ALTER TABLE auto_responses ADD COLUMN replies_sent INTEGER DEFAULT 0",
+    "ALTER TABLE auto_responses ADD COLUMN last_reply_at TEXT",
+    "ALTER TABLE auto_responses ADD COLUMN last_error TEXT",
     "ALTER TABLE users ADD COLUMN billing_provider TEXT",
     "ALTER TABLE users ADD COLUMN paddle_customer_id TEXT",
     "ALTER TABLE users ADD COLUMN paddle_subscription_id TEXT",
@@ -268,6 +288,7 @@ export async function migrate() {
     "ALTER TABLE users ADD COLUMN payout_method TEXT",
     "ALTER TABLE users ADD COLUMN payout_details TEXT",
     "ALTER TABLE users ADD COLUMN leaderboard_hidden INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN view_goals TEXT",
     // Drop the earlier Stripe-specific columns if a prior build added them.
     "ALTER TABLE users DROP COLUMN stripe_customer_id",
     "ALTER TABLE users DROP COLUMN stripe_subscription_id",

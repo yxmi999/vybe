@@ -157,27 +157,36 @@ export async function uploadVideo(
 
 export async function getVideoComments(accessToken: string, videoId: string) {
   const res = await axios.get(`${YT_BASE}/commentThreads`, {
-    params: { part: "snippet", videoId, maxResults: "100", order: "time" },
+    params: { part: "snippet,replies", videoId, maxResults: "100", order: "time", textFormat: "plainText" },
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
+  type YTSnippet = {
+    textDisplay: string; textOriginal?: string; authorDisplayName: string; publishedAt: string;
+    authorChannelId?: { value: string };
+  };
   type YTCommentThread = {
     snippet: {
-      topLevelComment: {
-        id: string;
-        snippet: { textDisplay: string; authorDisplayName: string; publishedAt: string };
-      };
+      topLevelComment: { id: string; snippet: YTSnippet };
       canReply: boolean;
+      totalReplyCount?: number;
     };
+    replies?: { comments: { snippet: YTSnippet }[] };
   };
 
-  return (res.data.items ?? []).map((item: YTCommentThread) => ({
-    threadId: item.snippet.topLevelComment.id,
-    text: item.snippet.topLevelComment.snippet.textDisplay,
-    author: item.snippet.topLevelComment.snippet.authorDisplayName,
-    publishedAt: item.snippet.topLevelComment.snippet.publishedAt,
-    canReply: item.snippet.canReply,
-  }));
+  return (res.data.items ?? []).map((item: YTCommentThread) => {
+    const top = item.snippet.topLevelComment.snippet;
+    return {
+      threadId: item.snippet.topLevelComment.id,
+      text: top.textOriginal ?? top.textDisplay,
+      author: top.authorDisplayName,
+      authorChannelId: top.authorChannelId?.value ?? null,
+      publishedAt: top.publishedAt,
+      canReply: item.snippet.canReply,
+      /** Channel ids that already replied in this thread (first few replies only). */
+      replyAuthorIds: (item.replies?.comments ?? []).map((c) => c.snippet.authorChannelId?.value).filter(Boolean) as string[],
+    };
+  });
 }
 
 export async function replyToComment(accessToken: string, parentId: string, text: string) {

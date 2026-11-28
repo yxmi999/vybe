@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { platformIcon } from "@/lib/utils";
 import { RefreshCw, Heart, MessageCircle, Share2, Eye, TrendingUp, BarChart2, ExternalLink, Activity, Trophy, DollarSign, ChevronDown } from "lucide-react";
 import { CampaignManager, CampaignSelect, type Campaign } from "./Campaigns";
-import { effectiveCampaign, videoRevenue, formatMoney } from "@/lib/campaigns";
+import { effectiveCampaign, videoRevenue, formatMoney, viewsToQualify } from "@/lib/campaigns";
+import { scoreVideos, platformBaselines, parseCampaignGoals, type Verdict, type PerfInput, type Goals } from "@/lib/performance";
+import { GoalCheckPanel, VerdictBadge } from "./GoalCheck";
 import { safeFetch } from "@/lib/utils";
 import PageHeader from "@/components/PageHeader";
 import Pagination, { usePagination } from "@/components/Pagination";
@@ -47,6 +49,8 @@ export default function AnalyticsPage() {
   const [active, setActive] = useState("all");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [showCampaigns, setShowCampaigns] = useState(false);
+  const [goals, setGoals] = useState<Goals>({});
+  const [verdictFilter, setVerdictFilter] = useState<Verdict | null>(null);
 
   async function load() {
     const data = await safeFetch("/api/analytics", undefined, []);
@@ -59,6 +63,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     safeFetch("/api/analytics", undefined, []).then(setRows);
     safeFetch("/api/campaigns", undefined, []).then(setCampaigns);
+    safeFetch("/api/analytics/goals", undefined, {}).then(setGoals);
   }, []);
 
   // Optimistic local update after a video is moved to another campaign.
@@ -81,7 +86,6 @@ export default function AnalyticsPage() {
 
   const engagementOf = (a: AnalyticsRow["analytics"]) => (a.likes ?? 0) + (a.comments ?? 0) + (a.shares ?? 0);
   const maxEng = Math.max(1, ...filtered.map((r) => engagementOf(r.analytics)));
-  const { pageItems, ...pager } = usePagination(filtered, 20);
   const topRow = [...filtered].sort((a, b) => engagementOf(b.analytics) - engagementOf(a.analytics))[0];
   const totalEng = sum("likes") + sum("comments") + sum("shares");
   const totalReach = sum("reach");
@@ -112,6 +116,29 @@ export default function AnalyticsPage() {
     ? formatMoney(0)
     : [...revenueTotals].map(([cur, v]) => formatMoney(v, cur)).join(" + ");
   const paidViews = filtered.reduce((s, r) => s + (campaignOf(r) ? viewsOf(r.analytics) : 0), 0);
+
+  // Goal check: every video vs. the user's goal or their median on that
+  // platform. Scored over all rows so the baseline doesn't shift with filters.
+  const perfInputs: PerfInput[] = rows.filter((r) => r.post).map((r) => ({
+    id: r.analytics.id,
+    platform: r.post!.platform,
+    views: viewsOf(r.analytics),
+    likes: r.analytics.likes ?? 0,
+    comments: r.analytics.comments ?? 0,
+    shares: r.analytics.shares ?? 0,
+    revenue: revenueOf(r),
+    campaignGoals: parseCampaignGoals(campaignOf(r)?.goals),
+    publishedAt: r.post!.publishedAt,
+  }));
+  const scores = scoreVideos(perfInputs, goals);
+  const baselines = platformBaselines(perfInputs);
+  const filteredScores = filtered.map((r) => scores.get(r.analytics.id)).filter((x) => x != null);
+  const tableRows = verdictFilter ? filtered.filter((r) => scores.get(r.analytics.id)?.verdict === verdictFilter) : filtered;
+  const { pageItems, ...pager } = usePagination(tableRows, 20);
+  const toQualifyOf = (r: AnalyticsRow) => {
+    const need = viewsToQualify(campaignOf(r));
+    return need != null ? need - viewsOf(r.analytics) : null;
+  };
 
   return (
     <div className="min-h-full bg-d0a text-white">
@@ -215,6 +242,19 @@ export default function AnalyticsPage() {
           )}
         </div>
 
+        {/* Did each video hit expectations? */}
+        {rows.length > 0 && (
+          <GoalCheckPanel
+            results={filteredScores}
+            platforms={[...activePlatforms] as string[]}
+            baselines={baselines}
+            goals={goals}
+            onGoalsSaved={setGoals}
+            filter={verdictFilter}
+            onFilter={setVerdictFilter}
+          />
+        )}
+
         {/* Top post highlight */}
         {topRow && engagementOf(topRow.analytics) > 0 && (
           <div className="relative overflow-hidden bg-gradient-to-r from-violet-600/[0.12] to-fuchsia-600/[0.06] border border-violet-500/20 rounded-2xl p-4 mb-4 flex items-center gap-4">
@@ -238,10 +278,10 @@ export default function AnalyticsPage() {
         <div className="bg-d12 border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-5 py-3.5 border-b border-white/[0.05] flex items-center justify-between">
             <span className="text-sm font-semibold text-white/70">Post Performance</span>
-            <span className="text-xs text-white/25">{filtered.length} post{filtered.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-white/25">{tableRows.length} post{tableRows.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {filtered.length === 0 ? (
+          {tableRows.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <div className="inline-flex p-4 bg-white/[0.03] rounded-2xl mb-4">
                 <TrendingUp size={28} className="text-white/15" />
@@ -249,7 +289,7 @@ export default function AnalyticsPage() {
               <p className="text-white/30 text-sm">
                 {rows.length === 0
                   ? "No analytics yet — posts must be published first."
-                  : "No posts for this platform."}
+                  : filtered.length > 0 ? "No videos match this result filter." : "No posts for this platform."}
               </p>
             </div>
           ) : (
@@ -295,6 +335,9 @@ export default function AnalyticsPage() {
                         </a>
                       )}
                     </div>
+                    <div className="flex">
+                      <VerdictBadge result={scores.get(a.id)} toQualify={toQualifyOf(row)} />
+                    </div>
                     <div className="grid grid-cols-3 gap-1.5">
                       {metrics.map((m) => (
                         <div key={m.label} className="rounded-lg bg-white/[0.03] border border-white/[0.05] px-2 py-1.5">
@@ -318,7 +361,7 @@ export default function AnalyticsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.04]">
-                    {["Post", "Likes", "Comments", "Shares", "Reach", "Impressions", "Engagement", "Campaign", "Revenue", "Published"].map((h, i) => (
+                    {["Post", "Likes", "Comments", "Shares", "Reach", "Impressions", "Engagement", "Result", "Campaign", "Revenue", "Published"].map((h, i) => (
                       <th
                         key={h}
                         className={`px-5 py-3 text-[10px] font-semibold text-white/25 uppercase tracking-widest whitespace-nowrap ${i > 0 ? "text-right" : "text-left"}`}
@@ -381,6 +424,9 @@ export default function AnalyticsPage() {
                               </div>
                             );
                           })()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <VerdictBadge result={scores.get(a.id)} toQualify={toQualifyOf({ analytics: a, post, account })} />
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {post && <CampaignSelect postId={post.id} value={post.campaignId} campaigns={campaigns} onAssigned={onAssigned} />}

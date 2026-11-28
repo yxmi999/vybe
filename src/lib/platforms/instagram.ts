@@ -385,12 +385,20 @@ export async function getPostInsights(accessToken: string, mediaId: string) {
   };
 }
 
+type IGComment = { id: string; text: string; username: string; timestamp: string; replies?: { data: { username?: string }[] } };
+
 export async function getComments(accessToken: string, mediaId: string) {
-  const res = await get<{ data: { id: string; text: string; username: string; timestamp: string }[] }>(
-    `/${mediaId}/comments`,
-    { fields: "id,text,username,timestamp", access_token: accessToken },
-  );
-  return res.data ?? [];
+  let res: { data: IGComment[] };
+  try {
+    // replies{username} lets the auto-responder skip comments the owner already answered.
+    res = await get<{ data: IGComment[] }>(`/${mediaId}/comments`, { fields: "id,text,username,timestamp,replies{username}", access_token: accessToken });
+  } catch {
+    res = await get<{ data: IGComment[] }>(`/${mediaId}/comments`, { fields: "id,text,username,timestamp", access_token: accessToken });
+  }
+  return (res.data ?? []).map((c) => ({
+    id: c.id, text: c.text, username: c.username, timestamp: c.timestamp,
+    replyUsernames: (c.replies?.data ?? []).map((r) => r.username).filter(Boolean) as string[],
+  }));
 }
 
 export async function replyToComment(accessToken: string, commentId: string, message: string) {

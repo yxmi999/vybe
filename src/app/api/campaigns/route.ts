@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     currency: parsed.value.currency ?? "USD",
     maxPayout: parsed.value.maxPayout ?? null,
     minPayout: parsed.value.minPayout ?? null,
+    goals: parsed.value.goals ?? null,
     isDefault,
   }).returning();
   return NextResponse.json(row, { status: 201 });

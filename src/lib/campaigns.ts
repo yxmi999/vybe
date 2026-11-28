@@ -1,3 +1,5 @@
+import { normalizeMetricGoals } from "./performance";
+
 // Campaign revenue math, shared by the API and the analytics UI so both
 // always agree. Pure functions only — safe to import client-side.
 
@@ -9,6 +11,7 @@ export type CampaignLike = {
   maxPayout: number | null;   // per-video cap; null = uncapped
   minPayout?: number | null;  // per-video qualifying minimum; below it the video earns 0
   isDefault: boolean | null;
+  goals?: string | null;      // JSON metric targets for this campaign's videos (see lib/performance)
 };
 
 // The campaign a video earns from: its own assignment, else the default.
@@ -51,9 +54,9 @@ export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "MAD", "BRL", "INR
 
 // Validate a create/update body. Returns the clean fields or an error string.
 export function parseCampaignInput(raw: unknown, partial = false):
-  { ok: true; value: Partial<{ name: string; cpm: number; currency: string; maxPayout: number | null; minPayout: number | null; isDefault: boolean }> } | { ok: false; error: string } {
+  { ok: true; value: Partial<{ name: string; cpm: number; currency: string; maxPayout: number | null; minPayout: number | null; isDefault: boolean; goals: string | null }> } | { ok: false; error: string } {
   const b = (raw ?? {}) as Record<string, unknown>;
-  const out: Partial<{ name: string; cpm: number; currency: string; maxPayout: number | null; minPayout: number | null; isDefault: boolean }> = {};
+  const out: Partial<{ name: string; cpm: number; currency: string; maxPayout: number | null; minPayout: number | null; isDefault: boolean; goals: string | null }> = {};
   // Accept "1,50" as well as "1.50" (decimal comma locales).
   const Number = (v: unknown) => globalThis.Number(typeof v === "string" ? v.trim().replace(",", ".") : v);
 
@@ -94,5 +97,9 @@ export function parseCampaignInput(raw: unknown, partial = false):
     return { ok: false, error: "Min payout can't be higher than the max per video." };
   }
   if (b.isDefault !== undefined) out.isDefault = b.isDefault === true;
+  if (b.goals !== undefined) {
+    const g = normalizeMetricGoals(b.goals, true);
+    out.goals = Object.keys(g).length ? JSON.stringify(g) : null;
+  }
   return { ok: true, value: out };
 }

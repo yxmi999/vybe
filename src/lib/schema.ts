@@ -23,6 +23,7 @@ export const users = sqliteTable("users", {
   payoutMethod: text("payout_method"),                 // 'paypal' | 'crypto' | 'wise'
   payoutDetails: text("payout_details"),               // PayPal email / wallet address / Wise email
   leaderboardHidden: integer("leaderboard_hidden", { mode: "boolean" }).default(false), // show as "Anonymous creator"
+  viewGoals: text("view_goals"),                       // JSON { platform: target views } for the analytics goal check
   emailVerifiedAt: text("email_verified_at"),          // null = unverified; free clips are locked until set
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
@@ -161,6 +162,7 @@ export const campaigns = sqliteTable("campaigns", {
   currency: text("currency").notNull().default("USD"),
   maxPayout: real("max_payout"),                    // per-video cap; null = uncapped
   minPayout: real("min_payout"),                    // per-video qualifying minimum; null = none
+  goals: text("goals"),                             // JSON metric targets for its videos (lib/performance)
   isDefault: integer("is_default", { mode: "boolean" }).default(false),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
@@ -185,6 +187,26 @@ export const autoResponses = sqliteTable("auto_responses", {
   respondToComments: integer("respond_to_comments", { mode: "boolean" }).default(true),
   isActive: integer("is_active", { mode: "boolean" }).default(true),
   lastCheckedAt: text("last_checked_at"), // ISO timestamp — only fetch comments after this
+  repliesSent: integer("replies_sent").default(0),
+  lastReplyAt: text("last_reply_at"),
+  lastError: text("last_error"),          // last run problem for this rule (token, API), null when healthy
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+});
+
+// One row per comment the auto-responder acted on. UNIQUE(account, comment)
+// is the dedupe guard: a comment is claimed before replying, so overlapping
+// runs (cron + "Run now") or a run that dies half-way never double-reply.
+export const autoResponseLog = sqliteTable("auto_response_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ruleId: integer("rule_id").references(() => autoResponses.id, { onDelete: "set null" }),
+  accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  postId: integer("post_id").references(() => posts.id, { onDelete: "set null" }),
+  commentId: text("comment_id").notNull(),
+  commentAuthor: text("comment_author"),
+  commentText: text("comment_text"),
+  replyText: text("reply_text"),
+  status: text("status").notNull().default("pending"), // 'pending' | 'sent' | 'failed'
+  error: text("error"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 });
 

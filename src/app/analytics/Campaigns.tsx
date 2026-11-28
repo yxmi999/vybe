@@ -2,13 +2,63 @@
 // Campaign manager (add / edit / set default / delete) and the per-video
 // campaign picker used on the Analytics page.
 import { useState } from "react";
-import { Plus, Star, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Plus, Star, Trash2, Pencil, Check, X, Loader2, Target, ChevronDown } from "lucide-react";
 import { CURRENCIES, formatMoney, viewsToQualify, type CampaignLike } from "@/lib/campaigns";
+import { GOAL_METRICS, parseCampaignGoals, isPercentMetric, type GoalMetric } from "@/lib/performance";
 
 export type Campaign = CampaignLike & { createdAt?: string | null };
 
-type Draft = { name: string; cpm: string; minPayout: string; maxPayout: string; currency: string };
-const emptyDraft: Draft = { name: "", cpm: "", minPayout: "", maxPayout: "", currency: "USD" };
+type Draft = { name: string; cpm: string; minPayout: string; maxPayout: string; currency: string; goals: Partial<Record<GoalMetric, string>> };
+const emptyDraft: Draft = { name: "", cpm: "", minPayout: "", maxPayout: "", currency: "USD", goals: {} };
+
+// "12K" / "1.5M" / "2,5" → number; "" → 0 (= no goal).
+function parseAmount(s?: string): number {
+  const m = (s ?? "").trim().replace(/[\s%$]/g, "").replace(",", ".").match(/^(\d*\.?\d+)([kKmM]?)$/);
+  if (!m) return 0;
+  return Number(m[1]) * (m[2].toLowerCase() === "m" ? 1e6 : m[2].toLowerCase() === "k" ? 1e3 : 1);
+}
+
+function goalSummary(raw: string | null | undefined, currency: string): string | null {
+  const g = parseCampaignGoals(raw);
+  const parts = GOAL_METRICS.filter((m) => g[m.key]).map((m) => {
+    const v = g[m.key]!;
+    const val = m.key === "revenue" ? formatMoney(v, currency) : isPercentMetric(m.key) ? `${v}%` : v.toLocaleString();
+    return `${val} ${m.label.toLowerCase()}`;
+  });
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function GoalFields({ draft, setDraft }: { draft: Draft; setDraft: (d: Draft) => void }) {
+  const count = Object.values(draft.goals).filter((v) => parseAmount(v) > 0).length;
+  const [open, setOpen] = useState(count > 0);
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02]">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-white/50 hover:text-white/75">
+        <Target size={12} className="text-sky-300/70" />
+        <span className="font-semibold">Goals for this campaign&apos;s videos</span>
+        <span className="text-white/25">{count > 0 ? `${count} set` : "optional — overrides platform goals"}</span>
+        <ChevronDown size={12} className={`ml-auto transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 px-3 pb-3">
+          {GOAL_METRICS.map(({ key, label, unit, hint }) => (
+            <label key={key} title={hint} className="flex flex-col gap-1 rounded-md bg-black/20 border border-white/[0.05] px-2.5 py-1.5 focus-within:border-sky-500/40">
+              <span className="text-[9px] uppercase tracking-wider text-white/30 font-semibold">{label}</span>
+              <span className="flex items-center gap-1">
+                <input inputMode="decimal" value={draft.goals[key] ?? ""} placeholder="—"
+                  aria-label={`${label} goal`}
+                  onChange={(e) => setDraft({ ...draft, goals: { ...draft.goals, [key]: e.target.value } })}
+                  className="min-w-0 w-full bg-transparent text-sm text-white/85 tabular-nums placeholder:text-white/20 outline-none" />
+                <span className="text-[10px] text-white/30">{key === "revenue" ? draft.currency : unit}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const inputCls =
   "w-full bg-white/[0.04] border border-white/[0.09] text-white placeholder:text-white/25 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/15 transition-all";
@@ -59,6 +109,7 @@ function DraftFields({ draft, setDraft }: { draft: Draft; setDraft: (d: Draft) =
 }
 
 const toBody = (d: Draft) => ({
+  goals: Object.fromEntries(Object.entries(d.goals).map(([k, v]) => [k, parseAmount(v)])),
   name: d.name,
   cpm: d.cpm.replace(",", "."),
   minPayout: d.minPayout.trim() === "" ? null : d.minPayout.replace(",", "."),
@@ -101,6 +152,7 @@ export function CampaignManager({ campaigns, onChange, revenueByCampaign, videos
           {campaigns.map((c) => editingId === c.id ? (
             <div key={c.id} className="p-3 space-y-2 bg-white/[0.02]">
               <DraftFields draft={editDraft} setDraft={setEditDraft} />
+              <GoalFields draft={editDraft} setDraft={setEditDraft} />
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setEditingId(null)}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.05]">
@@ -128,6 +180,11 @@ export function CampaignManager({ campaigns, onChange, revenueByCampaign, videos
                   {c.maxPayout != null && <> · max {formatMoney(c.maxPayout, c.currency)}/video</>}
                   {" · "}{videosByCampaign.get(c.id) ?? 0} video{(videosByCampaign.get(c.id) ?? 0) === 1 ? "" : "s"}
                 </p>
+                {goalSummary(c.goals, c.currency) && (
+                  <p className="text-[10px] text-sky-300/60 mt-0.5 flex items-center gap-1">
+                    <Target size={10} /> {goalSummary(c.goals, c.currency)}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <div className="text-sm font-semibold text-emerald-300 tabular-nums">{formatMoney(revenueByCampaign.get(c.id) ?? 0, c.currency)}</div>
@@ -144,7 +201,11 @@ export function CampaignManager({ campaigns, onChange, revenueByCampaign, videos
                 <button type="button" title="Edit" aria-label={`Edit ${c.name}`}
                   onClick={() => {
                     setEditingId(c.id);
-                    setEditDraft({ name: c.name, cpm: String(c.cpm), minPayout: c.minPayout != null ? String(c.minPayout) : "", maxPayout: c.maxPayout != null ? String(c.maxPayout) : "", currency: c.currency });
+                    const g = parseCampaignGoals(c.goals);
+                    setEditDraft({
+                      name: c.name, cpm: String(c.cpm), minPayout: c.minPayout != null ? String(c.minPayout) : "", maxPayout: c.maxPayout != null ? String(c.maxPayout) : "", currency: c.currency,
+                      goals: Object.fromEntries(Object.entries(g).map(([k, v]) => [k, String(v)])),
+                    });
                   }}
                   className="p-1.5 rounded-md text-white/30 hover:text-white/80 hover:bg-white/[0.06]">
                   <Pencil size={14} />
@@ -170,6 +231,7 @@ export function CampaignManager({ campaigns, onChange, revenueByCampaign, videos
           {campaigns.length === 0 ? "Add your first campaign — it becomes the default for every video." : "Add a campaign"}
         </p>
         <DraftFields draft={draft} setDraft={setDraft} />
+        <GoalFields draft={draft} setDraft={setDraft} />
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] text-white/25">Revenue = views ÷ 1,000 × CPM, up to the max per video. Videos under the min payout earn nothing.</p>
           <button type="submit" disabled={busy !== null || !draft.name.trim() || !draft.cpm.trim()}

@@ -4,8 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { platformColor } from "@/lib/utils";
 import { BrandIcon } from "@/components/BrandIcon";
 import PageHeader from "@/components/PageHeader";
+import MetaConnectGuide, { matchMetaError } from "./MetaConnectGuide";
 import {
-  Trash2, Power, CheckCircle2, Users, RefreshCw, TrendingUp, Loader2, Plus, ArrowRight,
+  Trash2, Power, CheckCircle2, Users, RefreshCw, TrendingUp, Loader2, Plus, ArrowRight, BookOpen,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -59,6 +60,10 @@ function statItems(platform: string, s: AccountStat): { label: string; value: nu
   ];
 }
 
+function safeDecode(s: string): string {
+  try { return decodeURIComponent(s); } catch { return s; }
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 function AccountsContent() {
@@ -71,6 +76,10 @@ function AccountsContent() {
   const connected = params.get("connected");
   const error     = params.get("error");
   const errorDetail = params.get("detail");
+  const decodedDetail = errorDetail ? safeDecode(errorDetail) : null;
+  const metaError = error === "instagram";
+  const [guideOpen, setGuideOpen] = useState(false);
+  const igAuthUrl = PLATFORMS.find((p) => p.id === "instagram")!.authUrl;
 
   function fetchStats() {
     fetch("/api/account-stats")
@@ -161,9 +170,18 @@ function AccountsContent() {
         {error && (
           <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm space-y-1">
             <p className="font-medium">Could not connect {error}.</p>
-            {errorDetail
-              ? <p className="font-mono text-xs text-red-400/60 break-all">{decodeURIComponent(errorDetail)}</p>
+            {metaError && matchMetaError(decodedDetail) && (
+              <p className="text-red-300/80 text-xs">{matchMetaError(decodedDetail)!.fix}</p>
+            )}
+            {decodedDetail
+              ? <p className="font-mono text-xs text-red-400/60 break-all">{decodedDetail}</p>
               : <p className="text-red-400/60">Please try again. If it keeps failing, contact support.</p>}
+            {metaError && (
+              <button type="button" onClick={() => setGuideOpen(true)}
+                className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-200 text-xs font-semibold">
+                <BookOpen size={12} /> Open the Instagram setup guide
+              </button>
+            )}
           </div>
         )}
         {refreshErrors.length > 0 && (
@@ -207,6 +225,14 @@ function AccountsContent() {
                     bg-white/[0.04] border border-white/[0.06] text-white/35 cursor-default select-none">
                     Coming soon
                   </span>
+                ) : p.id === "instagram" && !isConnected ? (
+                <div className="mt-auto flex flex-col gap-1.5">
+                  <button type="button" onClick={() => setGuideOpen(true)}
+                    className="flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors bg-violet-600 hover:bg-violet-500 text-white">
+                    Connect <ArrowRight size={13} />
+                  </button>
+                  <a href={p.authUrl} className="text-center text-[10px] text-white/25 hover:text-white/50">Skip the checklist</a>
+                </div>
                 ) : (
                 <a
                   href={p.authUrl}
@@ -342,6 +368,9 @@ function AccountsContent() {
         </div>
 
       </div>
+      {guideOpen && (
+        <MetaConnectGuide authUrl={igAuthUrl} errorDetail={metaError ? decodedDetail : null} onClose={() => setGuideOpen(false)} />
+      )}
     </div>
   );
 }

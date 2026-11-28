@@ -3,6 +3,7 @@ import { client } from "@/lib/db";
 import { deleteStored } from "@/lib/storage";
 import { downgradeExpired } from "@/lib/billing";
 import { refreshLeaderboardMetrics } from "@/lib/leaderboard";
+import { refreshStaleAnalytics } from "@/lib/post-metrics";
 import { isCronAuthorized } from "@/lib/cron-auth";
 
 // Deletes expired clip blobs (free-tier TTL) and their ledger rows. Runs on a
@@ -36,7 +37,9 @@ async function runCleanup() {
   // Daily safety net for leaderboard view counts, in case Auto-Pilot's more
   // frequent cron isn't scheduled on this deployment.
   const leaderboard = await refreshLeaderboardMetrics(100);
-  return { ok: true, deleted, downgraded, leaderboard };
+  // Same safety net for the Analytics goal check, if the 5-min cron isn't running.
+  const analytics = await refreshStaleAnalytics(100).catch(() => null);
+  return { ok: true, deleted, downgraded, leaderboard, analytics };
 }
 
 const authorized = (req: NextRequest) => isCronAuthorized(req);
